@@ -32,7 +32,7 @@ func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		fmt.Println("Configuration file not found, please provide the details for the first PCE:")
 		config.PCEs = make(map[string]PCEInfo)
-		pceInfo := createNewPCEInfo()
+		pceInfo := CreateNewPCEInfo()
 
 		fmt.Print("PCE Name: ")
 		reader := bufio.NewReader(os.Stdin)
@@ -42,7 +42,7 @@ func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 		config.PCEs[pceName] = pceInfo
 		config.DefaultPCEName = pceName
 
-		saveConfig(configFile, config)
+		SaveConfig(configFile, config)
 		fmt.Println("Configuration saved to", configFile)
 	} else {
 		configData, err := os.ReadFile(configFile)
@@ -55,7 +55,7 @@ func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 	// Check if any PCE is missing or if default PCE name is not set
 	if len(config.PCEs) == 0 || config.DefaultPCEName == "" {
 		fmt.Println("Invalid configuration. Adding a new PCE:")
-		pceInfo := createNewPCEInfo()
+		pceInfo := CreateNewPCEInfo()
 
 		fmt.Print("PCE Name: ")
 		reader := bufio.NewReader(os.Stdin)
@@ -70,14 +70,14 @@ func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 			config.DefaultPCEName = pceName
 		}
 
-		saveConfig(configFile, config)
+		SaveConfig(configFile, config)
 		fmt.Println("Updated and saved configuration to", configFile)
 	}
 
 	return config, nil
 }
 
-func createNewPCEInfo() PCEInfo {
+func CreateNewPCEInfo() PCEInfo {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("API Key: ")
@@ -100,7 +100,7 @@ func createNewPCEInfo() PCEInfo {
 	}
 }
 
-func saveConfig(configFile string, config PCEConfig) {
+func SaveConfig(configFile string, config PCEConfig) {
 	configData, _ := json.MarshalIndent(config, "", "  ")
 	os.WriteFile(configFile, configData, 0644)
 }
