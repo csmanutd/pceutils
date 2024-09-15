@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-type PCEConfig struct {
+type PCEInfo struct {
 	APIKey    string `json:"api_key"`
 	APISecret string `json:"api_secret"`
 	FQDN      string `json:"fqdn"`
@@ -20,35 +20,29 @@ type PCEConfig struct {
 	OrgID     string `json:"org_id"`
 }
 
+type PCEConfig struct {
+	PCEs           map[string]PCEInfo `json:"pces"`
+	DefaultPCEName string             `json:"default_pce_name"`
+}
+
 func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 	var config PCEConfig
 
 	// Check if the specified config file exists
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		fmt.Println("Configuration file not found, please provide the following details:")
+		fmt.Println("Configuration file not found, please provide the details for the first PCE:")
+		config.PCEs = make(map[string]PCEInfo)
+		pceInfo := createNewPCEInfo()
+
+		fmt.Print("PCE Name: ")
 		reader := bufio.NewReader(os.Stdin)
+		pceName, _ := reader.ReadString('\n')
+		pceName = strings.TrimSpace(pceName)
 
-		fmt.Print("API Key: ")
-		apiKey, _ := reader.ReadString('\n')
-		fmt.Print("API Secret: ")
-		apiSecret, _ := reader.ReadString('\n')
-		fmt.Print("FQDN: ")
-		fqdn, _ := reader.ReadString('\n')
-		fmt.Print("Port: ")
-		port, _ := reader.ReadString('\n')
-		fmt.Print("Org ID: ")
-		orgID, _ := reader.ReadString('\n')
+		config.PCEs[pceName] = pceInfo
+		config.DefaultPCEName = pceName
 
-		config = PCEConfig{
-			APIKey:    strings.TrimSpace(apiKey),
-			APISecret: strings.TrimSpace(apiSecret),
-			FQDN:      strings.TrimSpace(fqdn),
-			Port:      strings.TrimSpace(port),
-			OrgID:     strings.TrimSpace(orgID),
-		}
-
-		configData, _ := json.MarshalIndent(config, "", "  ")
-		os.WriteFile(configFile, configData, 0644)
+		saveConfig(configFile, config)
 		fmt.Println("Configuration saved to", configFile)
 	} else {
 		configData, err := os.ReadFile(configFile)
@@ -58,46 +52,57 @@ func LoadOrCreatePCEConfig(configFile string) (PCEConfig, error) {
 		json.Unmarshal(configData, &config)
 	}
 
-	// Check if any field is missing
-	missing := false
-	if config.APIKey == "" || config.APISecret == "" || config.FQDN == "" || config.Port == "" || config.OrgID == "" {
-		missing = true
-	}
+	// Check if any PCE is missing or if default PCE name is not set
+	if len(config.PCEs) == 0 || config.DefaultPCEName == "" {
+		fmt.Println("Invalid configuration. Adding a new PCE:")
+		pceInfo := createNewPCEInfo()
 
-	if missing {
+		fmt.Print("PCE Name: ")
 		reader := bufio.NewReader(os.Stdin)
-		if config.APIKey == "" {
-			fmt.Print("API Key: ")
-			apiKey, _ := reader.ReadString('\n')
-			config.APIKey = strings.TrimSpace(apiKey)
+		pceName, _ := reader.ReadString('\n')
+		pceName = strings.TrimSpace(pceName)
+
+		if config.PCEs == nil {
+			config.PCEs = make(map[string]PCEInfo)
 		}
-		if config.APISecret == "" {
-			fmt.Print("API Secret: ")
-			apiSecret, _ := reader.ReadString('\n')
-			config.APISecret = strings.TrimSpace(apiSecret)
-		}
-		if config.FQDN == "" {
-			fmt.Print("FQDN: ")
-			fqdn, _ := reader.ReadString('\n')
-			config.FQDN = strings.TrimSpace(fqdn)
-		}
-		if config.Port == "" {
-			fmt.Print("Port: ")
-			port, _ := reader.ReadString('\n')
-			config.Port = strings.TrimSpace(port)
-		}
-		if config.OrgID == "" {
-			fmt.Print("Org ID: ")
-			orgID, _ := reader.ReadString('\n')
-			config.OrgID = strings.TrimSpace(orgID)
+		config.PCEs[pceName] = pceInfo
+		if config.DefaultPCEName == "" {
+			config.DefaultPCEName = pceName
 		}
 
-		configData, _ := json.MarshalIndent(config, "", "  ")
-		os.WriteFile(configFile, configData, 0644)
+		saveConfig(configFile, config)
 		fmt.Println("Updated and saved configuration to", configFile)
 	}
 
 	return config, nil
+}
+
+func createNewPCEInfo() PCEInfo {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("API Key: ")
+	apiKey, _ := reader.ReadString('\n')
+	fmt.Print("API Secret: ")
+	apiSecret, _ := reader.ReadString('\n')
+	fmt.Print("FQDN: ")
+	fqdn, _ := reader.ReadString('\n')
+	fmt.Print("Port: ")
+	port, _ := reader.ReadString('\n')
+	fmt.Print("Org ID: ")
+	orgID, _ := reader.ReadString('\n')
+
+	return PCEInfo{
+		APIKey:    strings.TrimSpace(apiKey),
+		APISecret: strings.TrimSpace(apiSecret),
+		FQDN:      strings.TrimSpace(fqdn),
+		Port:      strings.TrimSpace(port),
+		OrgID:     strings.TrimSpace(orgID),
+	}
+}
+
+func saveConfig(configFile string, config PCEConfig) {
+	configData, _ := json.MarshalIndent(config, "", "  ")
+	os.WriteFile(configFile, configData, 0644)
 }
 
 func MakeAPICall(url, method, apiKey, apiSecret, payload string, insecure bool) (int, []byte, error) {
